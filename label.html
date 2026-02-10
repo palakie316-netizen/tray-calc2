@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tray Label</title>
+<style>
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#ffffff;color:#0f172a}
+.wrap{max-width:520px;margin:0 auto;padding:18px}
+h1{font-size:26px;margin:0 0 6px}
+.meta{font-size:14px;color:#334155;margin-bottom:14px}
+.box{border:2px solid #0f172a;border-radius:14px;padding:14px;margin:14px 0}
+.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.k{font-size:13px;color:#334155}
+.v{font-size:18px;font-weight:900}
+.qrWrap{display:flex;justify-content:center;align-items:center;margin-top:14px}
+.note{font-size:12px;color:#475569;margin-top:10px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+button{border:0;border-radius:10px;padding:10px 12px;font-weight:800;background:#0f172a;color:white;cursor:pointer}
+button.secondary{background:#334155}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta" id="topMeta">Tray Label</div>
+  <h1 id="prodName">—</h1>
+  <div class="meta" id="subMeta">—</div>
+
+  <div class="box">
+    <div class="row">
+      <div>
+        <div class="k">Dry weight (per portion)</div>
+        <div class="v" id="dryW">—</div>
+      </div>
+      <div>
+        <div class="k">Add water (per portion)</div>
+        <div class="v" id="waterAdd">—</div>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="row">
+      <div>
+        <div class="k">Reconstituted (per portion)</div>
+        <div class="v" id="reconW">—</div>
+      </div>
+      <div>
+        <div class="k">Portions</div>
+        <div class="v" id="portionsOut">—</div>
+      </div>
+    </div>
+
+    <div class="qrWrap">
+      <canvas id="qrCanvas" width="260" height="260" style="border:1px solid #cbd5e1;border-radius:12px;"></canvas>
+    </div>
+
+    <div class="note">Scan to open this label again.</div>
+  </div>
+
+  <div class="btns">
+    <button onclick="window.print()">Print</button>
+    <button class="secondary" onclick="location.href='./index.html'">Back</button>
+  </div>
+
+  <div class="note">Tip: For many label makers, screenshot this page and print the screenshot.</div>
+</div>
+
+<script src="assets/qrcode.js"></script>
+<script>
+const STATE_KEY="freeze_tray_utility_v1";
+function loadState(){ try { return JSON.parse(localStorage.getItem(STATE_KEY)||"{}"); } catch(e){ return {}; } }
+function calc(startW,endW,portions){
+  const s=Number(startW)||0, e=Number(endW)||0, p=Math.max(1, Number(portions)||1);
+  const water=Math.max(0, s-e);
+  return { waterRemoved:water, dryPer:e/p, waterPer:water/p, reconPer:s/p, p };
+}
+function fmt(n){ return (Math.round(n*100)/100).toString(); }
+function getTrayId(){
+  const h=location.hash||"";
+  const m=h.match(/tray=(\d+)/);
+  return m ? Number(m[1]) : 1;
+}
+function basePath(){
+  const p=location.pathname;
+  return p.endsWith("/") ? p : p.substring(0, p.lastIndexOf("/")+1);
+}
+function labelUrlForTray(trayId){
+  return `${location.origin}${basePath()}label.html#tray=${trayId}`;
+}
+function drawQr(text){
+  const qr=qrcode(0,'M');
+  qr.addData(text);
+  qr.make();
+  const count=qr.getModuleCount();
+  const canvas=document.getElementById("qrCanvas");
+  const ctx=canvas.getContext("2d");
+  const size=canvas.width;
+  const tile=Math.floor(size / count);
+  ctx.fillStyle="#ffffff";
+  ctx.fillRect(0,0,size,size);
+  ctx.fillStyle="#000000";
+  for(let r=0;r<count;r++){
+    for(let c=0;c<count;c++){
+      if(qr.isDark(r,c)){
+        ctx.fillRect(c*tile, r*tile, tile, tile);
+      }
+    }
+  }
+}
+
+const trayId=getTrayId();
+const state=loadState();
+const t=(state.trays||{})[trayId];
+
+document.getElementById("topMeta").textContent = `Tray ${trayId} • Label`;
+if(!t || !t.product){
+  document.getElementById("prodName").textContent="No data for this tray";
+  document.getElementById("subMeta").textContent="Go back and fill out tray details.";
+} else {
+  const c=calc(t.startW,t.endW,t.portions);
+  document.getElementById("prodName").textContent=t.product;
+  document.getElementById("subMeta").textContent = `Produced: ${t.date} • Water removed: ${fmt(c.waterRemoved)}`;
+  document.getElementById("dryW").textContent = fmt(c.dryPer);
+  document.getElementById("waterAdd").textContent = fmt(c.waterPer);
+  document.getElementById("reconW").textContent = fmt(c.reconPer);
+  document.getElementById("portionsOut").textContent = c.p;
+}
+
+drawQr(labelUrlForTray(trayId));
+</script>
+</body>
+</html>

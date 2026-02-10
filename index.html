@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Freeze Dry Tray Utility</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#0f172a"/>
+<style>
+:root{--bg:#0b1020;--card:#121a33;--card2:#0b122a;--text:#e5e7eb;--muted:#94a3b8;--line:#243055;--brand:#2563eb;--brand2:#334155;--danger:#ef4444;}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+.wrap{max-width:980px;margin:0 auto;padding:12px}
+header{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-bottom:10px}
+h1{font-size:18px;margin:0}
+.pill{font-size:12px;color:#c7d2fe;border:1px solid var(--line);padding:6px 10px;border-radius:999px;background:rgba(37,99,235,.08)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:650px){.grid{grid-template-columns:1fr}}
+.trayTitle{font-weight:900;font-size:16px;color:#c7d2fe;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.small{font-size:12px;color:var(--muted);white-space:pre-line;line-height:1.35}
+.tag{font-size:11px;color:#e0e7ff;border:1px solid var(--line);padding:2px 8px;border-radius:999px;background:rgba(99,102,241,.12)}
+.btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+button{border:0;border-radius:10px;padding:10px 12px;font-weight:800;color:white;background:var(--brand);cursor:pointer}
+button.secondary{background:var(--brand2)}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+button.danger{background:var(--danger)}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:15px}
+.field{flex:1;min-width:150px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.modalBack{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:12px;padding-top:16px;overflow:auto}
+.modal{width:min(420px,100%);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:env(safe-area-inset-top, 0px)}
+.modal h3{margin:0 0 10px;font-size:16px;text-align:center}
+.hint{font-size:11px;color:#c7d2fe;margin-top:6px}
+.results{border:1px solid var(--line);background:var(--card2);border-radius:12px;padding:10px;margin-top:10px}
+.results .k{font-size:12px;color:var(--muted);margin-bottom:4px}
+.results .v{font-size:14px;font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Freeze Dry Tray Utility</h1>
+    <div class="pill">5 trays • saved products • label QR link</div>
+  </header>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="small">Tap a tray to enter <b>Product</b>, <b>Start/End weight</b>, <b>Portions</b>, and <b>Produced date</b>. The tray card auto-fills. Tap <b>Label</b> to open a clean label page with a QR that links back to that label.</div>
+    <div class="btnRow">
+      <button id="exportBtn" class="secondary" type="button">Export JSON</button>
+      <button id="clearBtn" class="danger" type="button">Clear All</button>
+    </div>
+  </div>
+
+  <div class="grid" id="trayGrid"></div>
+</div>
+
+<div class="modalBack" id="modalBack">
+  <div class="modal">
+    <h3 id="modalTitle">Tray</h3>
+
+    <label>Product name</label>
+    <input id="productInput" list="productList" placeholder="Start typing…"/>
+    <datalist id="productList"></datalist>
+    <div class="hint">Saved products show in the dropdown. New names auto-save when you tap Save.</div>
+
+    <div class="row" style="margin-top:10px;">
+      <div class="field">
+        <label>Start weight</label>
+        <input id="startW" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g., 1200"/>
+      </div>
+      <div class="field">
+        <label>End weight</label>
+        <input id="endW" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g., 240"/>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div class="field">
+        <label>Portions</label>
+        <input id="portions" type="number" inputmode="numeric" step="1" min="1" placeholder="e.g., 4"/>
+        <div class="btnRow" style="margin-top:8px;">
+          <button class="secondary portionBtn" data-p="1" type="button">1</button>
+          <button class="secondary portionBtn" data-p="2" type="button">2</button>
+          <button class="secondary portionBtn" data-p="4" type="button">4</button>
+          <button class="secondary portionBtn" data-p="6" type="button">6</button>
+          <button class="secondary portionBtn" data-p="8" type="button">8</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Produced date</label>
+        <input id="prodDate" type="date"/>
+      </div>
+    </div>
+
+    <div class="results">
+      <div class="k">Per portion</div>
+      <div class="v" id="perPortLine">—</div>
+      <div class="k" style="margin-top:8px;">Water removed</div>
+      <div class="v" id="waterRemovedLine">—</div>
+    </div>
+
+    <div class="btnRow">
+      <button id="saveBtn" type="button">Save</button>
+      <button id="cancelBtn" class="ghost" type="button">Cancel</button>
+    </div>
+
+    <div class="hint">Units: use grams (recommended) or ounces—just stay consistent.</div>
+  </div>
+</div>
+
+<script>
+const STATE_KEY="freeze_tray_utility_v1";
+const PRODUCTS_KEY="freeze_tray_products_v1";
+
+function pad2(n){return String(n).padStart(2,"0");}
+function todayYmd(){const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;}
+
+function loadState(){try{const raw=localStorage.getItem(STATE_KEY);if(!raw)return {trays:{}};const s=JSON.parse(raw);if(!s.trays)s.trays={};return s;}catch(e){return {trays:{}};}}
+function saveState(s){localStorage.setItem(STATE_KEY, JSON.stringify(s));}
+
+function loadProducts(){try{const raw=localStorage.getItem(PRODUCTS_KEY);if(!raw)return [];const arr=JSON.parse(raw);return Array.isArray(arr)?arr:[];}catch(e){return [];}}
+function saveProducts(arr){localStorage.setItem(PRODUCTS_KEY, JSON.stringify(arr));}
+function uniqSorted(arr){const set=new Set(arr.map(x=>String(x||"").trim()).filter(Boolean));return Array.from(set).sort((a,b)=>a.localeCompare(b));}
+
+function calc(startW,endW,portions){const s=Number(startW)||0;const e=Number(endW)||0;const p=Math.max(1, Number(portions)||1);const water=Math.max(0, s-e);return {waterRemoved:water,dryPer:e/p,waterPer:water/p,reconPer:s/p,p};}
+function fmt(n){return (Math.round(n*100)/100).toString();}
+function escapeHtml(s){return (""+s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");}
+
+let state=loadState();
+let products=loadProducts();
+
+const trayGrid=document.getElementById("trayGrid");
+const modalBack=document.getElementById("modalBack");
+const productInput=document.getElementById("productInput");
+const startW=document.getElementById("startW");
+const endW=document.getElementById("endW");
+const portions=document.getElementById("portions");
+const prodDate=document.getElementById("prodDate");
+const perPortLine=document.getElementById("perPortLine");
+const waterRemovedLine=document.getElementById("waterRemovedLine");
+const productList=document.getElementById("productList");
+
+let activeTray=1;
+
+function renderProductDatalist(){products=uniqSorted(products);productList.innerHTML="";products.forEach(name=>{const opt=document.createElement("option");opt.value=name;productList.appendChild(opt);});}
+function trayCardHtml(i,t){const hasData=!!(t&&t.product);const name=hasData?t.product:"—";const date=hasData?t.date:"—";const p=hasData?t.portions:1;const c=hasData?calc(t.startW,t.endW,p):null;const dry=hasData?fmt(c.dryPer):"—";const water=hasData?fmt(c.waterPer):"—";return `
+  <div class="card">
+    <div class="trayTitle"><span>Tray ${i}</span><span class="tag">${hasData?"Saved":"Empty"}</span></div>
+    <div class="small"><b>${escapeHtml(name)}</b></div>
+    <div class="small">Portions: ${p} • Produced: ${escapeHtml(date)}</div>
+    <div class="small">Per portion — Dry: ${dry} • Water: ${water}</div>
+    <div class="btnRow">
+      <button type="button" class="secondary" data-action="edit" data-tray="${i}">Edit</button>
+      <button type="button" class="secondary" data-action="label" data-tray="${i}" ${hasData?"":"disabled"}>Label</button>
+    </div>
+  </div>`;}
+function renderTrays(){let html="";for(let i=1;i<=5;i++)html+=trayCardHtml(i,state.trays[i]);trayGrid.innerHTML=html;
+  trayGrid.querySelectorAll("button[data-action='edit']").forEach(btn=>btn.addEventListener("click",()=>openModal(Number(btn.dataset.tray))));
+  trayGrid.querySelectorAll("button[data-action='label']").forEach(btn=>btn.addEventListener("click",()=>{const id=Number(btn.dataset.tray);location.href=`label.html#tray=${id}`;}));
+}
+
+function openModal(trayId){activeTray=trayId;document.getElementById("modalTitle").textContent=`Tray ${trayId}`;const t=state.trays[trayId]||{};productInput.value=t.product||"";startW.value=(t.startW??"");endW.value=(t.endW??"");portions.value=(t.portions??1);prodDate.value=(t.date||todayYmd());modalBack.style.display="flex";updateResults();productInput.focus();}
+function closeModal(){modalBack.style.display="none";}
+
+function updateResults(){const s=Number(startW.value)||0;const e=Number(endW.value)||0;const p=Math.max(1, Number(portions.value)||1);if(s<=0||e<0){perPortLine.textContent="—";waterRemovedLine.textContent="—";return;}const c=calc(s,e,p);perPortLine.textContent=`Dry: ${fmt(c.dryPer)} • Add water: ${fmt(c.waterPer)} • Reconst: ${fmt(c.reconPer)} (x${c.p})`;waterRemovedLine.textContent=`${fmt(c.waterRemoved)} total water removed`;}
+[startW,endW,portions].forEach(el=>el.addEventListener("input",updateResults));
+document.querySelectorAll(".portionBtn").forEach(btn=>btn.addEventListener("click",()=>{portions.value=btn.dataset.p;updateResults();}));
+
+document.getElementById("cancelBtn").addEventListener("click",closeModal);
+modalBack.addEventListener("click",(e)=>{if(e.target.id==="modalBack")closeModal();});
+
+document.getElementById("saveBtn").addEventListener("click",()=>{
+  const name=productInput.value.trim();
+  state.trays[activeTray]={
+    product:name,
+    startW:Number(startW.value)||0,
+    endW:Number(endW.value)||0,
+    portions:Math.max(1, Number(portions.value)||1),
+    date:prodDate.value||todayYmd()
+  };
+  saveState(state);
+  if(name){products=uniqSorted(products.concat([name]));saveProducts(products);renderProductDatalist();}
+  closeModal();renderTrays();
+});
+
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="freeze_tray_utility_export.json";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  if(!confirm("Clear all trays and saved products on this device?"))return;
+  state={trays:{}};products=[];
+  localStorage.removeItem(STATE_KEY);localStorage.removeItem(PRODUCTS_KEY);
+  renderProductDatalist();renderTrays();
+});
+
+renderProductDatalist();renderTrays();
+
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}
+</script>
+</body>
+</html>
